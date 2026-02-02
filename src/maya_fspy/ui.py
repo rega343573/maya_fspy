@@ -35,6 +35,8 @@ except ImportError:
         from shiboken2 import wrapInstance
         PYSIDE_VERSION = 2
     except ImportError:
+        # PySide 1 (Maya 2016 and earlier) uses QtGui instead of QtWidgets
+        # Aliasing QtGui as QtWidgets provides basic widget compatibility
         from PySide import QtCore
         from PySide import QtGui as QtWidgets
         from shiboken import wrapInstance

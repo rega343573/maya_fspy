@@ -54,7 +54,7 @@ def create_camera_and_plane(json_path, image_path):
             cmds.setAttr('{0}.{1}'.format(matrix, attr), value)
 
     # creating an image plane for the camera
-    image_plane_result = cmds.imagePlane(camera=camera_shape)
+    image_plane_result = cmds.imagePlane(camera=camera_transform)
     image_transform = image_plane_result[0]
     image_shape = image_plane_result[1]
     cmds.setAttr('{0}.imageName'.format(image_shape), image_path, type='string')
