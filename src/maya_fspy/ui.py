@@ -20,14 +20,25 @@ from functools import partial
 
 import maya.OpenMayaUI as omui
 import pymel.core as pm
-from PySide2 import QtCore
-from PySide2 import QtWidgets
-from shiboken2 import wrapInstance
+
+# Maya 2025+ uses PySide6, earlier versions use PySide2
+try:
+    from PySide6 import QtCore
+    from PySide6 import QtWidgets
+    from shiboken6 import wrapInstance
+    # PySide6 enum access
+    WindowContextHelpButtonHint = QtCore.Qt.WindowType.WindowContextHelpButtonHint
+except ImportError:
+    from PySide2 import QtCore
+    from PySide2 import QtWidgets
+    from shiboken2 import wrapInstance
+    # PySide2 enum access
+    WindowContextHelpButtonHint = QtCore.Qt.WindowContextHelpButtonHint
 
 from .core import create_camera_and_plane
 
 __author__ = 'Justin Pedersen'
-__version__ = '1.2.0'
+__version__ = '1.3.0'
 
 WINDOW_NAME = "Fspy Importer - v{}".format(__version__)
 
@@ -64,7 +75,7 @@ class FSpyImporter(QtWidgets.QDialog):
 
         self.setWindowTitle(WINDOW_NAME)
         self.setMinimumWidth(300)
-        self.setWindowFlags(self.windowFlags() ^ QtCore.Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags() ^ WindowContextHelpButtonHint)
 
         self.create_widgets()
         self.create_layouts()
