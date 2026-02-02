@@ -15,36 +15,54 @@ Reference distance:
     Along the y-axis
 """
 import os
-import platform
+import sys
 from functools import partial
 
 import maya.OpenMayaUI as omui
-import pymel.core as pm
+import maya.cmds as cmds
 
-# Maya 2025+ uses PySide6, earlier versions use PySide2
+# Try to import PySide6 first (Maya 2025+), then PySide2 (Maya 2017-2024), then PySide (Maya 2016)
+PYSIDE_VERSION = None
 try:
     from PySide6 import QtCore
     from PySide6 import QtWidgets
     from shiboken6 import wrapInstance
-    # PySide6 enum access
-    WindowContextHelpButtonHint = QtCore.Qt.WindowType.WindowContextHelpButtonHint
+    PYSIDE_VERSION = 6
 except ImportError:
-    from PySide2 import QtCore
-    from PySide2 import QtWidgets
-    from shiboken2 import wrapInstance
-    # PySide2 enum access
-    WindowContextHelpButtonHint = QtCore.Qt.WindowContextHelpButtonHint
+    try:
+        from PySide2 import QtCore
+        from PySide2 import QtWidgets
+        from shiboken2 import wrapInstance
+        PYSIDE_VERSION = 2
+    except ImportError:
+        # PySide 1 (Maya 2016 and earlier) uses QtGui instead of QtWidgets
+        # Aliasing QtGui as QtWidgets provides basic widget compatibility
+        from PySide import QtCore
+        from PySide import QtGui as QtWidgets
+        from shiboken import wrapInstance
+        PYSIDE_VERSION = 1
 
 from .core import create_camera_and_plane
 
 __author__ = 'Justin Pedersen'
-__version__ = '1.3.0'
+__version__ = '2.0.0'
 
-WINDOW_NAME = "Fspy Importer - v{}".format(__version__)
+WINDOW_NAME = "Fspy Importer - v{0}".format(__version__)
 
-# Python 3 compatibility
-if platform.python_version_tuple()[0] == '3':
+# Python 2/3 compatibility
+if sys.version_info[0] >= 3:
     long = int
+
+
+def get_window_flag_hint():
+    """
+    Get the window flag hint for removing the context help button.
+    PySide6 changed enum access pattern from Qt.EnumValue to Qt.EnumType.EnumValue
+    """
+    if PYSIDE_VERSION == 6:
+        return QtCore.Qt.WindowType.WindowContextHelpButtonHint
+    else:
+        return QtCore.Qt.WindowContextHelpButtonHint
 
 
 def maya_main_window():
@@ -52,14 +70,20 @@ def maya_main_window():
     Return the Maya main window widget as a Python object
     """
     main_window_ptr = omui.MQtUtil.mainWindow()
-    return wrapInstance(long(main_window_ptr), QtWidgets.QWidget)
+    if main_window_ptr is not None:
+        return wrapInstance(long(main_window_ptr), QtWidgets.QWidget)
+    return None
 
 
 def close_existing_windows():
     """
     Close any existing instances of the maya fspy window
     """
-    for child_window in maya_main_window().children():
+    main_window = maya_main_window()
+    if main_window is None:
+        return
+    
+    for child_window in main_window.children():
         if hasattr(child_window, 'windowTitle'):
             if child_window.windowTitle() == WINDOW_NAME:
                 child_window.close()
@@ -75,7 +99,7 @@ class FSpyImporter(QtWidgets.QDialog):
 
         self.setWindowTitle(WINDOW_NAME)
         self.setMinimumWidth(300)
-        self.setWindowFlags(self.windowFlags() ^ WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags() ^ get_window_flag_hint())
 
         self.create_widgets()
         self.create_layouts()
@@ -124,9 +148,9 @@ class FSpyImporter(QtWidgets.QDialog):
         else:
             all_image_formats = ['psd', 'als', 'avi', 'dds', 'gif', 'jpg', 'cin', 'iff', 'exr',
                                  'png', 'eps', 'yuv', 'hdr', 'tga', 'tif', 'tim', 'bmp', 'xpm']
-            file_filter = 'All Image Files (*.{})'.format(' *.'.join([x for x in all_image_formats]))
+            file_filter = 'All Image Files (*.{0})'.format(' *.'.join([x for x in all_image_formats]))
 
-        filename = pm.fileDialog2(fileMode=1, caption=caption, fileFilter=file_filter)
+        filename = cmds.fileDialog2(fileMode=1, caption=caption, fileFilter=file_filter)
         if filename:
             line_edit.setText(filename[0])
 
@@ -136,12 +160,12 @@ class FSpyImporter(QtWidgets.QDialog):
         """
         # Making sure no one put a .json file in the JSON field
         if os.path.splitext(self.json_lineedit.text())[-1].lower() != '.json':
-            return pm.warning('The JSON field only accepts .json file formats')
+            return cmds.warning('The JSON field only accepts .json file formats')
 
         if self.json_lineedit and self.image_lineedit:
             create_camera_and_plane(self.json_lineedit.text(), self.image_lineedit.text())
         else:
-            pm.warning('Please set a JSON and image path.')
+            cmds.warning('Please set a JSON and image path.')
 
 
 def maya_fspy_ui():
